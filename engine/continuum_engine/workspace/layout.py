@@ -15,13 +15,14 @@ def init_workspace(ws: Path) -> None:
 	ws.mkdir(parents=True, exist_ok=True)
 
 	dirs = [
+		ws / ".continuum" / "runs",
+		ws / ".continuum" / "logs",
+		ws / ".continuum" / "cache",
+		ws / ".continuum" / "state",
 		ws / "data" / "raw",
 		ws / "datasets",
-		ws / "runs",
 		ws / "models" / "checkpoints",
 		ws / "models" / "exports",
-		ws / "cache",
-		ws / "logs",
 	]
 
 	for d in dirs:
