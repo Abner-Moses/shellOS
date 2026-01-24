@@ -9,6 +9,7 @@ import sys
 import time
 import shlex
 import subprocess
+import traceback
 from pathlib import Path
 
 from continuum_engine.workspace.layout import init_workspace
@@ -31,6 +32,12 @@ from continuum_engine.pull import (
 	list_targets as list_pull_targets,
 	pull_target,
 	run_doctor as run_pull_doctor,
+)
+from continuum_engine.create import (
+	CreateContext,
+	list_targets as list_create_targets,
+	create_target,
+	run_doctor as run_create_doctor,
 )
 
 
@@ -124,6 +131,20 @@ def build_parser() -> argparse.ArgumentParser:
 	p_pull.add_argument("--debug", action="store_true", help="Show debug output")
 	p_pull.add_argument("--json", action="store_true", help="Output JSON (doctor only)")
 	p_pull.add_argument("target", nargs="?", help="Target: list | doctor | all | <pull target>")
+
+	p_create = sub.add_parser("create", help="Create models and bundles")
+	p_create.add_argument("--workspace", help="Path to workspace folder (default: current directory)")
+	p_create.add_argument("--yes", action="store_true", help="Auto-confirm creates")
+	p_create.add_argument("--no-prompt", action="store_true", help="Auto-confirm creates")
+	p_create.add_argument("--dry-run", action="store_true", help="Show what would be created")
+	p_create.add_argument("--debug", action="store_true", help="Show debug output")
+	p_create.add_argument("--json", action="store_true", help="Output JSON (doctor only)")
+	p_create.add_argument("target", nargs="?", help="Target: list | doctor | all | <create target>")
+
+	p_engine = sub.add_parser("engine", help="Run the Data Engine")
+	p_engine.add_argument("--workspace", help="Path to workspace folder (default: current directory)")
+	p_engine.add_argument("--debug", action="store_true", help="Show debug output")
+	p_engine.add_argument("passthrough", nargs=argparse.REMAINDER, help="Arguments after -- are passed to run_all.py")
 	
 	return parser
 
@@ -808,6 +829,61 @@ def main(argv: list[str] | None = None) -> int:
 		if args.target == "all":
 			return pull_target("data_models", ctx)
 		return pull_target(args.target, ctx)
+	
+	if args.cmd == "create":
+		ws = Path(args.workspace).expanduser().resolve() if args.workspace else Path.cwd().resolve()
+		if not ws.exists():
+			print(f"[err] Workspace path does not exist: {ws}")
+			return 1
+		if not ws.is_dir():
+			print(f"[err] Workspace path is not a directory: {ws}")
+			return 1
+		ctx = CreateContext(workspace=ws, dry_run=args.dry_run, debug=args.debug, yes=args.yes or args.no_prompt)
+		if not args.target:
+			print("[err] Missing create target. Use `continuum create list` to see options.")
+			return 1
+		if args.json and args.target != "doctor":
+			print("[err] --json is only valid with `continuum create doctor`.")
+			return 1
+		if args.target == "list":
+			list_create_targets()
+			return 0
+		if args.target == "doctor":
+			return run_create_doctor(ctx, json_output=args.json)
+		if args.target == "all":
+			return create_target("engine", ctx)
+		return create_target(args.target, ctx)
+	
+	if args.cmd == "engine":
+		ws = Path(args.workspace).expanduser().resolve() if args.workspace else Path.cwd().resolve()
+		if not ws.exists():
+			print(f"[err] Workspace path does not exist: {ws}")
+			return 1
+		if not ws.is_dir():
+			print(f"[err] Workspace path is not a directory: {ws}")
+			return 1
+		run_all_a = ws / "external" / "Model_Data-1O" / "app" / "run_all.py"
+		run_all_b = ws / "external" / "model_data_1o" / "app" / "run_all.py"
+		run_all = run_all_a if run_all_a.exists() else run_all_b if run_all_b.exists() else None
+		if run_all is None:
+			print("[err] Data engine not found. Expected run_all.py under external/Model_Data-1O/app or external/model_data_1o/app")
+			return 1
+		if shutil.which("python3") is None:
+			print("[err] python3 not found. Run `continuum install base`.")
+			return 1
+		passthrough = args.passthrough
+		if passthrough and passthrough[0] == "--":
+			passthrough = passthrough[1:]
+		print(f"Running data engine: {run_all}")
+		try:
+			result = subprocess.run(["python3", str(run_all)] + passthrough)
+			return result.returncode
+		except Exception as e:
+			if args.debug:
+				print(traceback.format_exc())
+				return 1
+			print(f"[err] {e}")
+			return 1
 
 	parser.print_help()
 	return 1
