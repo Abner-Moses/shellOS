@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "continuum-engine"
+version = "0.0.0"
+description = "Continuum Engine CLI"
+requires-python = ">=3.10"
+
+[project.scripts]
+continuum = "continuum_engine.cli:main"
