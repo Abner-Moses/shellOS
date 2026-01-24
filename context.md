@@ -1,5 +1,7 @@
 # Chat Context
 
+This file summarizes the decisions, changes, and conventions from our ongoing CLI work so future sessions can pick up quickly without re-reading the full chat history. It exists as a lightweight, human-readable change log and onboarding note for the repository.
+
 - Project: Continuum CLI inside a custom ShellOS repo at `/mnt/c/shellOS`.
 - Core files modified during this session:
   - `engine/continuum_engine/cli.py`
@@ -7,6 +9,8 @@
   - `engine/continuum_engine/workspace/layout.py`
   - `engine/continuum_engine/workspace/validate.py` (added)
   - `engine/continuum_engine/workspace/setup.py` (added)
+  - `engine/continuum_engine/install/manager.py` (added)
+  - `engine/continuum_engine/install/__init__.py` (added)
   - `.gitignore` (populated with standard Python ignores)
   - `context.md` (this summary)
 
@@ -58,13 +62,36 @@
   - `minimal`: `pyyaml`, `rich`, `tqdm`, `psutil`, `jsonlines`.
   - `ai`: minimal + `numpy`, `torch`, `transformers`, `datasets`, `accelerate`, `safetensors`.
 
-## Doctor / Status / Scan Commands
+## Doctor / Status / Scan / Env / Checkpoints / Train / Infer
 
 - `continuum doctor` (read-only): prints Python path, VIRTUAL_ENV, workspace info, `.continuum` and subdir status, presence of `continuum.yaml`, and run count.
 - `continuum status` (read-only): outputs workspace status and latest run; errors with “Not a Continuum workspace. Run `continuum init`.” if not initialized.
 - `continuum scan`: validates workspace, creates a run, scans files excluding `.continuum/`, `.git/`, `.venv/`, computes totals, writes `.continuum/state/scan.json`, and updates run status; supports `--json`.
+- `continuum env`: reports python/venv/hardware/torch/optional libs, can write `.continuum/state/env.json` when allowed; includes `--json`.
+- `continuum checkpoints` group: list/latest/prune with size/mtime info; prune supports dry-run and safe path checks; skips missing checkpoints root.
+- `continuum train`: launcher wrapper with backend selection and run tracking; robust finish on errors/interrupts.
+- `continuum infer`: inference launcher with backend auto-selection and run tracking.
 
-## Notes
+## Install Suite (`continuum install`)
 
-- `.gitignore` populated with a standard Python template plus common IDE/OS ignores.
-- Manual review found no syntax errors across Python files; minor behavior notes include status handling of corrupt run metadata and `venv-setup --emit` using `return 1` (expected for eval usage).
+- Added install registry at `engine/continuum_engine/install/manager.py` with:
+  - Installer registry (id/description/deps/check/install/verify).
+  - Bundles: base, web, ai, full (bundle can include bundles).
+  - Resolver with cycle detection and plan ordering.
+  - APT-first installers and Ollama vendor script install.
+  - Install state stored at `.continuum/state/install.json` (write only on install actions).
+  - Global flags: `--yes` / `--no-prompt`, `--dry-run`, `--debug`, `--json` (doctor only).
+  - `install list`, `install doctor`, `install all`, `install <target>` supported.
+- Doctor output:
+  - Primary output: per-installer status (missing / installed ok / installed broken).
+  - If ollama installed, also checks `ollama list` and `systemctl is-active ollama` (when available).
+  - `install doctor --json` outputs a JSON report.
+  - Additional command checks only printed when `--debug` is set.
+- APT notes:
+  - Non-interactive installs with `apt-get update` once per run.
+  - Clear errors for lock/permission issues; no lockfile deletion guidance.
+  - Prints “sudo required” when sudo is needed.
+
+## .gitignore
+
+- Populated with a standard Python template plus common IDE/OS ignores.

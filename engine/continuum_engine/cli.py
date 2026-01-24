@@ -20,6 +20,12 @@ from continuum_engine.workspace.setup import (
 	repo_root_from_here,
 	run_cmd,
 )
+from continuum_engine.install import (
+	InstallContext,
+	install_target,
+	list_targets,
+	run_doctor,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,6 +100,15 @@ def build_parser() -> argparse.ArgumentParser:
 	p_infer.add_argument("--backend", choices=["auto", "vllm", "transformers", "python"], default="auto", help="Backend selector")
 	p_infer.add_argument("--dry-run", action="store_true", help="Print command and exit")
 	p_infer.add_argument("passthrough", nargs=argparse.REMAINDER, help="Arguments after -- are passed to the script")
+
+	p_install = sub.add_parser("install", help="Install tools and bundles")
+	p_install.add_argument("--workspace", help="Path to workspace folder (default: current directory)")
+	p_install.add_argument("--yes", action="store_true", help="Auto-confirm installations")
+	p_install.add_argument("--no-prompt", action="store_true", help="Auto-confirm installations")
+	p_install.add_argument("--dry-run", action="store_true", help="Show what would be installed")
+	p_install.add_argument("--debug", action="store_true", help="Show debug output")
+	p_install.add_argument("--json", action="store_true", help="Output JSON (doctor only)")
+	p_install.add_argument("target", nargs="?", help="Target: list | doctor | all | <installer/bundle>")
 	
 	return parser
 
@@ -730,6 +745,30 @@ def main(argv: list[str] | None = None) -> int:
 			else:
 				finish_run(run, "failed")
 		return result.returncode
+	
+	if args.cmd == "install":
+		ws = Path(args.workspace).expanduser().resolve() if args.workspace else Path.cwd().resolve()
+		if not ws.exists():
+			print(f"[err] Workspace path does not exist: {ws}")
+			return 1
+		if not ws.is_dir():
+			print(f"[err] Workspace path is not a directory: {ws}")
+			return 1
+		ctx = InstallContext(workspace=ws, dry_run=args.dry_run, debug=args.debug, yes=args.yes or args.no_prompt)
+		if not args.target:
+			print("[err] Missing install target. Use `continuum install list` to see options.")
+			return 1
+		if args.json and args.target != "doctor":
+			print("[err] --json is only valid with `continuum install doctor`.")
+			return 1
+		if args.target == "list":
+			list_targets()
+			return 0
+		if args.target == "doctor":
+			return run_doctor(ctx, json_output=args.json)
+		if args.target == "all":
+			return install_target("full", ctx)
+		return install_target(args.target, ctx)
 
 	parser.print_help()
 	return 1
