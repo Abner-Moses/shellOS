@@ -10,9 +10,8 @@ from pathlib import Path
 from typing import Callable
 
 DATA_MODELS = [
-	"qwen3-uncensored:latest",
-	"phi3-mini-json:latest",
-	"phi3-mini-agent:latest",
+	"goekdenizguelmez/JOSIEFIED-Qwen3",
+	"phi3:mini",
 ]
 
 
