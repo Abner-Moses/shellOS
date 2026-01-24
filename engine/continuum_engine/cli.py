@@ -26,6 +26,12 @@ from continuum_engine.install import (
 	list_targets,
 	run_doctor,
 )
+from continuum_engine.pull import (
+	PullContext,
+	list_targets as list_pull_targets,
+	pull_target,
+	run_doctor as run_pull_doctor,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -109,6 +115,15 @@ def build_parser() -> argparse.ArgumentParser:
 	p_install.add_argument("--debug", action="store_true", help="Show debug output")
 	p_install.add_argument("--json", action="store_true", help="Output JSON (doctor only)")
 	p_install.add_argument("target", nargs="?", help="Target: list | doctor | all | <installer/bundle>")
+
+	p_pull = sub.add_parser("pull", help="Pull resources and models")
+	p_pull.add_argument("--workspace", help="Path to workspace folder (default: current directory)")
+	p_pull.add_argument("--yes", action="store_true", help="Auto-confirm pulls")
+	p_pull.add_argument("--no-prompt", action="store_true", help="Auto-confirm pulls")
+	p_pull.add_argument("--dry-run", action="store_true", help="Show what would be pulled")
+	p_pull.add_argument("--debug", action="store_true", help="Show debug output")
+	p_pull.add_argument("--json", action="store_true", help="Output JSON (doctor only)")
+	p_pull.add_argument("target", nargs="?", help="Target: list | doctor | all | <pull target>")
 	
 	return parser
 
@@ -769,6 +784,30 @@ def main(argv: list[str] | None = None) -> int:
 		if args.target == "all":
 			return install_target("full", ctx)
 		return install_target(args.target, ctx)
+	
+	if args.cmd == "pull":
+		ws = Path(args.workspace).expanduser().resolve() if args.workspace else Path.cwd().resolve()
+		if not ws.exists():
+			print(f"[err] Workspace path does not exist: {ws}")
+			return 1
+		if not ws.is_dir():
+			print(f"[err] Workspace path is not a directory: {ws}")
+			return 1
+		ctx = PullContext(workspace=ws, dry_run=args.dry_run, debug=args.debug, yes=args.yes or args.no_prompt)
+		if not args.target:
+			print("[err] Missing pull target. Use `continuum pull list` to see options.")
+			return 1
+		if args.json and args.target != "doctor":
+			print("[err] --json is only valid with `continuum pull doctor`.")
+			return 1
+		if args.target == "list":
+			list_pull_targets()
+			return 0
+		if args.target == "doctor":
+			return run_pull_doctor(ctx, json_output=args.json)
+		if args.target == "all":
+			return pull_target("data_models", ctx)
+		return pull_target(args.target, ctx)
 
 	parser.print_help()
 	return 1
