@@ -24,7 +24,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
+MANIFEST4
 
 # PyInstaller
 *.manifest
@@ -140,3 +140,5 @@ cython_debug/
 # OS files
 .DS_Store
 Thumbs.db
+
+context.md/
