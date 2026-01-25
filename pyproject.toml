@@ -7,6 +7,16 @@ name = "continuum-engine"
 version = "0.0.0"
 description = "Continuum Engine CLI"
 requires-python = ">=3.10"
+readme = "README.md"
+dependencies = []
 
 [project.scripts]
 continuum = "continuum_engine.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "engine"}
+
+[tool.setuptools.packages.find]
+where = ["engine"]
+include = ["continuum_engine*"]
+exclude = ["external*", "shell*", "engine*", "tests*"]
