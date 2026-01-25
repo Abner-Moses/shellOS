@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Minimal IDE Launcher
+Comment=File explorer + embedded terminal + Brave launcher
+Exec=python3 /home/rishi/minimal-ide-launcher/app.py
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;Development;
